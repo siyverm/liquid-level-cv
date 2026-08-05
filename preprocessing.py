@@ -18,7 +18,11 @@ def crop_image_edge_detect (image) :
     blur = cv2.GaussianBlur(gray, (5,5), 0)
 
     # detect edges (50 and 150 are variable thresholds, change them to adjust edge detection)
-    edges = cv2.Canny(blur, 50, 150)
+    edges = cv2.Canny(blur, 15 , 60)
+
+    # closes edges that dont connect
+    kernelCLOSE = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernelCLOSE)
 
     # Finds edges(contours) detected by Canny
     contours, _ =  cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -27,12 +31,19 @@ def crop_image_edge_detect (image) :
     if not contours :
         raise DetectionError("No Contours Found.")
     
-    largest_contour = max(contours, key=cv2.contourArea)
-    if cv2.contourArea(largest_contour) < (0.05 * image.shape[0] * image.shape[1]) : 
-        raise DetectionError("Largest Contour Too Small, likely noise.")
+    # create a list of "good contours" that are large enough to be considered in the crop.
+    goodContours = []
+    for contour in contours :
+        if cv2.contourArea(contour) > (0.001 * image.shape[0] * image.shape[1]) :
+            goodContours.append(contour)
+
+    if not goodContours :
+        raise DetectionError("No Good Contours Found")
+
+    # After all good contours are found, a box containing all of them is drawn and given in coordinates and size
+    x, y, w, h = cv2.boundingRect(np.vstack(goodContours))
 
     # crops image
-    x, y, w, h = cv2.boundingRect(largest_contour)
     image = image[y:y+h, x:x+w]
 
     return image
