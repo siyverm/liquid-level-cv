@@ -15,12 +15,15 @@ def crop_image_edge_detect (image) :
     # detect edges (50 and 150 are variable thresholds, change them to adjust edge detection)
     edges = cv2.Canny(blur, 50, 150)
 
+    # Finds edges(contours) detected by Canny
     contours, _ =  cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+    # finds largest contour detected. 
     if contours:
         largest_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(largest_contours)
     
+    # crops image
     image = image[y:y+h, x:x+w]
 
 
