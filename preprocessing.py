@@ -4,7 +4,6 @@ import time
 import os
 from datetime import datetime
 
-
 # Error for edge detection in cropping
 class DetectionError(Exception) :
     pass
@@ -14,14 +13,43 @@ def crop_image_edge_detect (image) :
     # creates grey copy of image 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+    clahe = cv2.createCLAHE(clipLimit = 4.0, tileGridSize = (8,8))
+    gray = clahe.apply(gray)
+
     # reduce noise
     blur = cv2.GaussianBlur(gray, (5,5), 0)
 
-    # detect edges (50 and 150 are variable thresholds, change them to adjust edge detection)
-    edges = cv2.Canny(blur, 15 , 60)
+    # detect edges, uses brightness of image to deteremine adequate thresholds. 
+    # Only works against light backgrounds for the time being.
+    otsuVal, _ = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    lower = int(max(0, 0.5 * otsuVal))
+    upper = int(otsuVal)
+    print("lower: " + str(lower) + " | upper: " + str(upper))
+
+    edges = cv2.Canny(blur, lower , upper)
+
+    # removed any horizontal lines in the picture.
+    lineMask = np.zeros_like(edges)
+    linesP = cv2.HoughLinesP(
+        edges,
+        rho = 1,
+        theta = np.pi / 180,
+        threshold = 50,
+        minLineLength = int(0.20 * image.shape[1]),
+        maxLineGap = 20
+    )
+    if linesP is not None :
+        cv2.imwrite("houghMask_debug.png", lineMask)
+        for line in linesP:
+            x1, y1, x2, y2 = [int(v) for v in np.array(line).flatten()[:4]]
+            angle = np.degrees(np.arctan2(float(abs(y2 - y1)), float(abs(x2 - x1))))
+            if angle < 10:
+                cv2.line(lineMask, (x1,y1), (x2, y2), 255, thickness = 5)
+    edges = cv2.subtract(edges, lineMask)
 
     # closes edges that dont connect
-    kernelCLOSE = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
+    kernelSize = max(3, int(0.01*min(image.shape[:2])))
+    kernelCLOSE = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelSize, kernelSize))
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernelCLOSE)
 
     # Finds edges(contours) detected by Canny
@@ -34,14 +62,30 @@ def crop_image_edge_detect (image) :
     # create a list of "good contours" that are large enough to be considered in the crop.
     goodContours = []
     for contour in contours :
-        if cv2.contourArea(contour) > (0.001 * image.shape[0] * image.shape[1]) :
-            goodContours.append(contour)
+        area = cv2.contourArea(contour)
+        if area <= (0.0005 * image.shape[0] * image.shape[1]) :
+            continue
+        cx, cy, cw, ch = cv2.boundingRect(contour)
+        aspect = cw / float(ch)
+        # skip long thin horizontal fragments (floor line)
+        if aspect > 8.0 and ch < 0.04 * image.shape[0] :
+            continue
+        goodContours.append(contour)
 
     if not goodContours :
         raise DetectionError("No Good Contours Found")
 
     # After all good contours are found, a box containing all of them is drawn and given in coordinates and size
     x, y, w, h = cv2.boundingRect(np.vstack(goodContours))
+
+    # Sometimes the edge at the very bottom of the beaker gets thrown out. 
+    # So we get the very bottom edge found, assuming that it is the edge. 
+    beakerRegion = edges[:, x:x+w]
+    ys, xs = np.nonzero(beakerRegion)
+    if len(ys) > 0:
+        lowestRimY = ys.max()
+        newBottom = min(max(y + h, lowestRimY), image.shape[0])
+        h = newBottom - y
 
     # crops image
     image = image[y:y+h, x:x+w]
@@ -85,7 +129,7 @@ def preprocess (imagePath) :
 
 # testing preprocess function.
 def TestImages () :
-    path = input("Path of the image you would like to test?")
+    path = input("Path of the image you would like to test?: ")
     processedImage = preprocess(path)
 
     filename =  "Image_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".png"
