@@ -13,7 +13,8 @@ MANIFEST_PATH = os.path.join(DATASET_ROOT, "dataset.csv")
 IMG_WIDTH = 100 #filler value
 IMG_HEIGHT = 100 #filler value
 # How many images the model looks at during one training step
-BATCH_SIZE = 100 #filler value
+BATCH_SIZE = 8 #filler value
+EPOCHS = 100
 
 # when model is trained, it will be saved here
 MODEL_OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.keras") # filler name for file
@@ -22,7 +23,7 @@ MODEL_OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model
 def load_manifest():
     df = pd.read_csv(MANIFEST_PATH)
     # double check the csv has all the columns we expect
-    required_columns = []
+    required_columns = [] # fill in columns here
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f"Your CSV is missing a required column: '{col}'")
@@ -50,9 +51,9 @@ def load_images_and_labels(df):
 
         # make sure image size is the right size - script assumes images have already been resized
         img = img.astype("float32") / 255.0
-        top = row["top_coordinate"]
-        bottom = row["bottom_coordinate"]
-        liquid = row["liquid_coordinate"]
+        top = row["top_coordinate"] / IMG_HEIGHT
+        bottom = row["bottom_coordinate"] / IMG_HEIGHT
+        liquid = row["liquid_coordinate"] / IMG_HEIGHT
 
         images.append(img)
         labels.append([top, bottom, liquid])
@@ -76,5 +77,35 @@ def build_model():
     outputs = layers.Dense(units=3, activation="sigmoid")(x)
     model = Model(inputs=inputs, outputs=outputs)
     return model
-    # incomplete
-    
+
+# compile and trail the model
+def train_model(model, train_images, train_labels, val_images, val_labels):
+    model.compile(optimizer="adam", loss="mse", metrics=["mae"]) # double check these settings
+    model.summary()
+
+    training_callbacks = [callbacks.EarlyStopping(patience=15, restore_best_weights=True), callbacks.ReduceLROnPlateau(patience=6, factor=0.5),]
+
+    model.fit(train_images, train_labels, validation_data=(val_images, val_labels), batch_size=BATCH_SIZE, epochs=EPOCHS, callbacks=training_callbacks,)
+    return model
+
+def main():
+    df = load_manifest
+    # split into trail/val based on split column in CSV
+    train_df = df[df[SPLIT] == "train"]
+    val_df = df[df[SPLIT] == "val"] # update column name
+
+    # print(f"Found {len(train_df)} training images and {len(val_df)} validation images.")
+    # if len(train_df) < 100:
+    #   print("WARNING: This is a small dataset. Expect limited generalization "
+    #         "until more training images are collected.")
+
+    train_images, train_labels = load_images_and_labels(train_df)
+    val_images, val_labels = load_images_and_labels(val_df)
+
+    model = build_model()
+    model = train_model(model, train_images, train_labels, val_images, val_labels)
+    model.save(MODEL_OUT_PATH)
+    #print(f"Training complete, model saved to: {MODEL_OUT_PATH}")
+
+if __name__ == "__main__":
+    main()
