@@ -15,8 +15,8 @@ DATASET_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset
 MANIFEST_PATH = os.path.join(DATASET_ROOT, "dataset.csv")
 
 
-IMG_WIDTH = 100 #filler value
-IMG_HEIGHT = 100 #filler value
+IMG_WIDTH = 128 #filler value
+IMG_HEIGHT = 128 #filler value
 # How many images the model looks at during one training step
 BATCH_SIZE = 8 #filler value
 EPOCHS = 100
@@ -30,6 +30,7 @@ def load_manifest():
     print(df.columns.tolist()) # some reason it says session_id doesn't exist in dataset.csv when it does so checking here
     # double check the csv has all the columns we expect
     required_columns = ["image_path", "session_id", "bottom_coordinate", "top_coordinate", "liquid_coordinate", "fill_percentage"] # same columns in dataset.csv
+    # alterntively we can precompute the fill percentage to eliminate bottom, top, and liquid coordinate columns
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f"Your CSV is missing a required column: '{col}'")

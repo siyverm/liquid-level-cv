@@ -24,7 +24,7 @@ def crop_image_edge_detect (image) :
     otsuVal, _ = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     lower = int(max(0, 0.5 * otsuVal))
     upper = int(otsuVal)
-    print("lower: " + str(lower) + " | upper: " + str(upper))
+    # print("lower: " + str(lower) + " | upper: " + str(upper))
 
     edges = cv2.Canny(blur, lower , upper)
 
@@ -88,9 +88,9 @@ def crop_image_edge_detect (image) :
         h = newBottom - y
 
     # crops image
-    image = image[y:y+h, x:x+w]
+    cropped = image[y:y+h, x:x+w]
 
-    return image
+    return cropped, (x, y, w, h)
 
 # resizes image to make constant in training and prediciton
 def resize (image) :
@@ -113,7 +113,7 @@ def resize (image) :
     bordered = cv2.copyMakeBorder(resizedImage, topPad, bottomPad, 
                                   leftPad, rightPad, cv2.BORDER_CONSTANT, value = (0, 0, 0))
 
-    return bordered
+    return bordered, scaleFactor, topPad
 
 # preprocessing function. Runs above functions and normalizes colors 0 - 1 instead of 1 - 256.
 def preprocess (imagePath) :
@@ -122,15 +122,33 @@ def preprocess (imagePath) :
     if image is None :
         raise ValueError("Could not open or find the image")
 
-    image = crop_image_edge_detect(image)
-    image = resize(image)
-    finalImage = cv2.normalize(image, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F)
-    return finalImage
+    cropped, cropBox = crop_image_edge_detect(image)
+    resized, scaleFactor, topPad = resize(cropped)
+    finalImage = cv2.normalize(resized, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F)
+
+    transformInfo = {
+        "crop_y": cropBox[1],
+        "scale_factor": scaleFactor,
+        "top_pad": topPad,
+    }
+    return finalImage, transformInfo
+
+def transform_ylabels (original_y, transformInfo):
+    y_cropped = original_y - transformInfo["crop_y"]
+    y_scaled = y_cropped * transformInfo["scale_factor"]
+    y_final = y_scaled + transformInfo["top_pad"]
+    return y_final
+
+def update_coordinates(top_y, bottom_y, liquid_y, transformInfo):
+    new_top = transform_ylabels(top_y, transformInfo)
+    new_bottom = transform_ylabels(bottom_y, transformInfo)
+    new_liquid = transform_ylabels(liquid_y, transformInfo)
+    return new_top, new_bottom, new_liquid
 
 # testing preprocess function.
 def TestImages () :
     path = input("Path of the image you would like to test?: ")
-    processedImage = preprocess(path)
+    processedImage, transformInfo = preprocess(path)
 
     filename =  "Image_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".png"
     filename = os.path.join("testImages", filename)
