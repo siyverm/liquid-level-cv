@@ -4,6 +4,11 @@ import pandas as pd
 import cv2
 import tensorflow as tf
 from tensorflow.keras import layers, Model, callbacks
+from sklearn.model_selection import train_test_split
+
+# NOTE: RUNNING THIS RESULTS IN ERROR BECAUSE DATASET.CSV DOESN'T HOLD ANY DATA YET (see below)
+# ValueError: With n_samples=0, test_size=None and train_size=0.75, the resulting train set will be empty. 
+# Adjust any of the aforementioned parameters.
 
 DATASET_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset")
 # full path to CSV file with labels
@@ -22,8 +27,9 @@ MODEL_OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model
 # Load CSV file
 def load_manifest():
     df = pd.read_csv(MANIFEST_PATH)
+    print(df.columns.tolist()) # some reason it says session_id doesn't exist in dataset.csv when it does so checking here
     # double check the csv has all the columns we expect
-    required_columns = [] # fill in columns here
+    required_columns = ["image_path", "session_id", "bottom_coordinate", "top_coordinate", "liquid_coordinate", "fill_percentage"] # same columns in dataset.csv
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f"Your CSV is missing a required column: '{col}'")
@@ -62,6 +68,20 @@ def load_images_and_labels(df):
     labels = np.array(labels, dtype="float32")
     return images, labels
 
+# split the data into train/val groups 
+# keeps all rows from the same session together in the same group
+# this way model can be validated through a session that it hasn't been trained on / seen before
+def split_by_session(df, train_size=0.75, random_state=2):
+    # Get the list of unique session IDs
+    unique_sessions = df["session_id"].unique()
+    # split sessions into train/val groups
+    train_sessions, val_sessions = train_test_split(unique_sessions, train_size=train_size, random_state=random_state)
+    # assign every row to a group based on which session it came from
+    train_df = df[df["session_id"].isin(train_sessions)]
+    val_df = df[df["session_id"].isin(val_sessions)]
+
+    return train_df, val_df, train_sessions, val_sessions
+
 # build neural network
 def build_model():
     # CNNs are good for images because they can look at patches of an image and identify patterns
@@ -89,10 +109,15 @@ def train_model(model, train_images, train_labels, val_images, val_labels):
     return model
 
 def main():
-    df = load_manifest
+    df = load_manifest()
     # split into trail/val based on split column in CSV
-    train_df = df[df[SPLIT] == "train"]
-    val_df = df[df[SPLIT] == "val"] # update column name
+    # train_df = df[df[SPLIT] == "train"]
+    # val_df = df[df[SPLIT] == "val"] # update column name - fade this
+    
+    train_df, val_df, train_sessions, val_sessions = split_by_session(df, train_size=0.75, random_state=2)
+
+    # maybe print something for validation that this works
+    # train_sessions and val_sessions are values for validation purposes
 
     # print(f"Found {len(train_df)} training images and {len(val_df)} validation images.")
     # if len(train_df) < 100:
