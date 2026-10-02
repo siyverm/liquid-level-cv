@@ -3,6 +3,7 @@ import numpy as np
 import time
 import os
 from datetime import datetime
+import pandas as pd
 
 # Error for edge detection in cropping
 class DetectionError(Exception) :
@@ -144,6 +145,36 @@ def update_coordinates(top_y, bottom_y, liquid_y, transformInfo):
     new_bottom = transform_ylabels(bottom_y, transformInfo)
     new_liquid = transform_ylabels(liquid_y, transformInfo)
     return new_top, new_bottom, new_liquid
+
+def preprocess_csv(filepath) :
+    lb = pd.read_csv(filepath)
+    required_columns = ["filename", "y_bottom", "y_top", "y_meniscus"]
+    for col in required_columns :
+        if col not in lb.columns :
+            raise ValueError(f"Your CSV is missing a required column: '{col}'")
+
+    columns = ["image_path", "session_id", "bottom_coordinate", "top_coordinate", "liquid_coordinate", "fill_percentage"]
+    rows = []
+    
+    for row in lb.itertuples() :
+        filename = row.filename
+        filepath = os.path.join("images", filename)
+        session_id = filename.split("_")[1].removesuffix(".jpg")
+        preprocessed_image, transform_info = preprocess(filepath)
+
+        preproccessed_bottom, preproccessed_top, preproccessed_meniscus = update_coordinates(row.y_bottom, row.y_top, row.y_meniscus, transform_info)
+
+        percentage = (preproccessed_meniscus - preproccessed_bottom) / (preproccessed_top - preproccessed_bottom) * 100
+
+        filepath = os.path.join("dataset", "pp_" + filename)
+        os.makedirs("dataset", exist_ok = True)
+        cv2.imwrite(filepath, (preprocessed_image * 255).astype(np.uint8))
+
+        complete_data = [filepath, session_id, preproccessed_bottom, preproccessed_top, preproccessed_meniscus, percentage]
+        rows.append(complete_data)
+    
+    df = pd.DataFrame(rows, columns = columns)
+    df.to_csv("dataset/dataset.csv", index = False)
 
 # testing preprocess function.
 def TestImages () :
