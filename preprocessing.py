@@ -5,6 +5,13 @@ import os
 from datetime import datetime
 import pandas as pd
 
+# how far (in pixels of the 128x128 image) a label may sit outside the crop
+# before it's treated as an error instead of a labeling slip
+LABEL_TOLERANCE = 3
+
+# known crop boxes for controlled sessions, written by crop_tool.py
+CROP_BOXES_PATH = "crop_boxes.csv"
+
 # Error for edge detection in cropping
 class DetectionError(Exception) :
     pass
@@ -40,7 +47,6 @@ def crop_image_edge_detect (image) :
         maxLineGap = 20
     )
     if linesP is not None :
-        cv2.imwrite("houghMask_debug.png", lineMask)
         for line in linesP:
             x1, y1, x2, y2 = [int(v) for v in np.array(line).flatten()[:4]]
             angle = np.degrees(np.arctan2(float(abs(y2 - y1)), float(abs(x2 - x1))))
@@ -93,6 +99,30 @@ def crop_image_edge_detect (image) :
 
     return cropped, (x, y, w, h)
 
+# Crops the image to a known box instead of detecting it.
+# Use in controlled setups where the camera and container don't move.
+# box is (left, top, right, bottom), either in pixels or as fractions (0-1) of the image size.
+def crop_image_fixed (image, box, fractional = False) :
+    imgH, imgW = image.shape[:2]
+    left, top, right, bottom = box
+
+    # fractions let the same box work for photos of different resolutions
+    if fractional :
+        left, right = left * imgW, right * imgW
+        top, bottom = top * imgH, bottom * imgH
+
+    # round to whole pixels and keep the box inside the image
+    x1 = max(0, int(round(left)))
+    y1 = max(0, int(round(top)))
+    x2 = min(imgW, int(round(right)))
+    y2 = min(imgH, int(round(bottom)))
+
+    if x2 <= x1 or y2 <= y1 :
+        raise DetectionError(f"Crop box {box} is empty or outside the {imgW}x{imgH} image")
+
+    cropped = image[y1:y2, x1:x2]
+    return cropped, (x1, y1, x2 - x1, y2 - y1)
+
 # resizes image to make constant in training and prediciton
 def resize (image) :
     # Shrink by the greatest amount needed to get 128 on that side
@@ -117,13 +147,17 @@ def resize (image) :
     return bordered, scaleFactor, topPad
 
 # preprocessing function. Runs above functions and normalizes colors 0 - 1 instead of 1 - 256.
-def preprocess (imagePath) :
+# Uses the given crop box if there is one, otherwise finds the container with edge detection.
+def preprocess (imagePath, cropBox = None, fractional = False) :
     image = cv2.imread(imagePath)
 
     if image is None :
         raise ValueError("Could not open or find the image")
 
-    cropped, cropBox = crop_image_edge_detect(image)
+    if cropBox is None :
+        cropped, cropBox = crop_image_edge_detect(image)
+    else :
+        cropped, cropBox = crop_image_fixed(image, cropBox, fractional)
     resized, scaleFactor, topPad = resize(cropped)
     finalImage = cv2.normalize(resized, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F)
 
@@ -134,19 +168,34 @@ def preprocess (imagePath) :
     }
     return finalImage, transformInfo
 
+# transforms a coordinate with transformation info
 def transform_ylabels (original_y, transformInfo):
     y_cropped = original_y - transformInfo["crop_y"]
     y_scaled = y_cropped * transformInfo["scale_factor"]
     y_final = y_scaled + transformInfo["top_pad"]
     return y_final
 
+# adjusts the labels after image transformations
 def update_coordinates(top_y, bottom_y, liquid_y, transformInfo):
     new_top = transform_ylabels(top_y, transformInfo)
     new_bottom = transform_ylabels(bottom_y, transformInfo)
     new_liquid = transform_ylabels(liquid_y, transformInfo)
     return new_top, new_bottom, new_liquid
 
+# image names are "<uuid>_<session>.jpg"; uuids never contain "_", so split on the first one
+def get_session_id (filename) :
+    return os.path.splitext(os.path.basename(filename))[0].split("_", 1)[1]
+
+# reads crop_boxes.csv into {session_id: (left, top, right, bottom)}, boxes stored as fractions of the image
+def load_crop_boxes (path = CROP_BOXES_PATH) :
+    if not os.path.exists(path) :
+        return {}
+    boxes = pd.read_csv(path, dtype = {"session_id": str}, keep_default_na = False)
+    return {row.session_id: (row.left, row.top, row.right, row.bottom) for row in boxes.itertuples()}
+
+# runs preprocessing for images in {filepath} csv, saving them to the dataset folder and preparing the dataset.csv for model training.
 def preprocess_csv(filepath) :
+    cropBoxes = load_crop_boxes()
     lb = pd.read_csv(filepath)
     required_columns = ["filename", "y_bottom", "y_top", "y_meniscus"]
     for col in required_columns :
@@ -158,23 +207,44 @@ def preprocess_csv(filepath) :
     
     for row in lb.itertuples() :
         filename = row.filename
-        filepath = os.path.join("images", filename)
-        session_id = filename.split("_")[1].removesuffix(".jpg")
-        preprocessed_image, transform_info = preprocess(filepath)
+        image_path = os.path.join("images", filename)
+        session_id = get_session_id(filename)
+        
+        # sessions with a known crop box use it, everything else falls back to edge detection
+        try :
+            preprocessed_image, transform_info = preprocess(image_path, cropBoxes.get(session_id), fractional = True)
+        except (DetectionError, ValueError) as e :
+            print(f" [IMAGE PROCESSING] Skipping {filename} : {e}")
+            continue
 
-        preproccessed_bottom, preproccessed_top, preproccessed_meniscus = update_coordinates(row.y_bottom, row.y_top, row.y_meniscus, transform_info)
+        preproccessed_top, preproccessed_bottom, preproccessed_meniscus = update_coordinates(row.y_top, row.y_bottom, row.y_meniscus, transform_info)
+
+        coords = (preproccessed_top, preproccessed_bottom, preproccessed_meniscus)
+
+        # label far outside the image: probably a bad crop, so skip
+        if not all(-LABEL_TOLERANCE <= c <= 128 + LABEL_TOLERANCE for c in coords) :
+            print(f" [COORDINATE PROCESSING] Skipping {filename} : Coordinates out of cropped container bounds.")
+            continue
+
+        # label slightly outside: probably a labeling slip, so pull it back to the edge
+        if not all(0 <= c <= 128 for c in coords) :
+            print(f" [COORDINATE PROCESSING] Clamping {filename} : label slightly outside the crop {[round(c, 1) for c in coords]}")
+        preproccessed_top, preproccessed_bottom, preproccessed_meniscus = (min(max(c, 0), 128) for c in coords)
 
         percentage = (preproccessed_meniscus - preproccessed_bottom) / (preproccessed_top - preproccessed_bottom) * 100
+        percentage = max(0, min(100, percentage))
 
-        filepath = os.path.join("dataset", "pp_" + filename)
+        pp_image_name = "pp_" + os.path.splitext(filename)[0] + ".png"
+        pp_image_path = os.path.join("dataset", pp_image_name)
         os.makedirs("dataset", exist_ok = True)
-        cv2.imwrite(filepath, (preprocessed_image * 255).astype(np.uint8))
+        cv2.imwrite(pp_image_path, (preprocessed_image * 255).astype(np.uint8))
 
-        complete_data = [filepath, session_id, preproccessed_bottom, preproccessed_top, preproccessed_meniscus, percentage]
+        complete_data = [pp_image_name, session_id, preproccessed_bottom, preproccessed_top, preproccessed_meniscus, percentage]
         rows.append(complete_data)
     
     df = pd.DataFrame(rows, columns = columns)
     df.to_csv("dataset/dataset.csv", index = False)
+    return df
 
 # testing preprocess function.
 def TestImages () :
@@ -187,19 +257,5 @@ def TestImages () :
     os.makedirs("testImages", exist_ok=True)
     cv2.imwrite(filename, (processedImage * 255).astype(np.uint8))
 
-
-TestImages()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+if __name__ == "__main__" :
+    preprocess_csv("labels.csv")

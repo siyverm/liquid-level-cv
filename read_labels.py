@@ -1,12 +1,13 @@
 # Serves the purpose of reading JSON output of Label Studio and writing to csv
 
-import json, csv, os
+import json, csv, os, sys
 
-# reads json and writes to csv
+# reads json and writes to csv, returns how many images were written
 def processLabels (filePath) :
     with open(filePath) as file :
         tasks = json.load(file)
-    
+
+    written = 0
     with open(file = "labels.csv", mode = "w", newline = "") as out :
         w = csv.writer(out)
         w.writerow(["filename", "y_top", "y_bottom", "y_meniscus"])
@@ -26,7 +27,14 @@ def processLabels (filePath) :
 
             fname = os.path.basename(t["data"]["image"])
             w.writerow([fname, pts["top"][0], pts["bottom"][0], pts["meniscus"][0]])
+            written += 1
 
-processLabels("testLabels.json")
+    return written
+
+if __name__ == "__main__" :
+    if len(sys.argv) != 2 :
+        print("Usage: python read_labels.py <label-studio-export>.json")
+        sys.exit(1)
+    processLabels(sys.argv[1])
 
 
