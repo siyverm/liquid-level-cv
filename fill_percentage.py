@@ -1,12 +1,11 @@
 import cv2
 import numpy as np
 from tensorflow import keras
+import tensorflow as tf
 from keras.models import load_model
-from preprocessing import crop_image_edge_detect, crop_image_fixed, resize, DetectionError
-from preprocessing import preprocess
 
 
-# model = keras.models.load_model() # insert filepath here
+model = keras.models.load_model() # insert filepath here
 
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 while True:
@@ -14,17 +13,19 @@ while True:
     if not ret:
         break
 
-    # frame = preprocess(frame)
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    # width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    # resize frame (beaker focus)
-    img, scale = preprocess(frame)
-    height = img.shape[0]
-
     # use model to predict y coordinate of water level for the given frame
     # y = model.predict(img) 
-
-    fill_percent = float(y / (height*scale))
+    # returns two y values and an array of pixel values (size of array)
+    # model outputs a matrix with 2 columns
+    #   col 1 : light to dark
+    #   col 2 : dark to light
+    arr = model.predict(frame)
+    y1 = np.max(arr[:, 0])
+    y2 = np.max(arr[:, 1])
+    y = (y1 + y2) / 2
+    height = arr.shape[0]
+    
+    fill_percent = float(y / height) # 100 is a filler value (height of the crop box)
     print(fill_percent)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
