@@ -6,41 +6,19 @@ import tensorflow as tf
 from keras import layers, Model, callbacks
 import sys
 import keras
+from making_model import make_model, predict
 
-# kernel that is applied over entire image
-sobel_y = np.array([[-1, -2, -1 ],
-                    [0,   0,  0],
-                    [1,   2,  1]], dtype = "float32")
-# modifies the kernel to be 2 kernels, one for detecting white into dark and other the inverse.
-kernel = np.stack([sobel_y, -sobel_y], axis = -1) [:, :, np.newaxis, :]
+# Adds the parent directory (liquid-level-cv) to Python's module search path
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-MAX_WIDTH  = 500
-MAX_HEIGHT = 500
+from crop_tool import pick_crop_box_live
+from preprocessing import crop_image_fixed
+from fill_percentage import predict_volume
 
-# Creates the model itself, which uses keras to overlay the sobol matrix over the image
-# and average pools into giving y values for when the sobel matrix is at maximum ()
-def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
-    input = layers.Input(shape = (height, width, 1))
-    # applies the kernel using a convolution layer (no learning)
-    x = layers.Conv2D(2, kernel_size = 3, padding = "valid", use_bias = False, trainable = False, name = "sobel") (input)
-    #idk if relu is actually needed. 
-    x = layers.ReLU() (x)
-    # reduce dimension, summing over all rows. 
-    x = layers.AveragePooling2D(pool_size = (1, width - 2)) (x)
-
-    model = keras.Model(input, x)
-
-    model.get_layer("sobel").set_weights([kernel])
-
-    model.summary()
-    model.save("detect_line.keras")
-
-    return model
-
-def predict (model, img):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype("float32")   # (1080, 1920), for getting correct dimension into model
-    profile = model.predict(gray[np.newaxis, :, :, np.newaxis])[0, :, 0, :] 
-    return profile
+#
+# Code from this file is AI gen, it is purely used for testing. 
+#
 
 # Draws what the model sees: the image with a line at the strongest edge of each kind,
 # next to a panel plotting the profile row by row.
@@ -78,8 +56,6 @@ def draw_profile (img, profile, panelWidth = 150, minHeight = 400) :
 # ENTER accept, Q quit), then builds the model at that crop's size and runs it on the
 # cropped feed. Press Q in the "Cropped" window to stop.
 def run_with_live_crop (source = 0, slit = False) :
-    from crop_tool import pick_crop_box_live
-    from preprocessing import crop_image_fixed
 
     box, frame = pick_crop_box_live(source, slit = slit)
     cropped, _ = crop_image_fixed(frame, box, fractional = True)
@@ -98,6 +74,8 @@ def run_with_live_crop (source = 0, slit = False) :
 
             cropped, _ = crop_image_fixed(frame, box, fractional = True)
             profile = predict(model, cropped)
+
+            predict_volume(profile)    
 
             cv2.imshow("Cropped", draw_profile(cropped, profile))
             if (cv2.waitKey(1) & 0xFF) in (ord("q"), ord("Q"), 27) :
