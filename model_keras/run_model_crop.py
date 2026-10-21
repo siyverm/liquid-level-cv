@@ -16,6 +16,8 @@ from crop_tool import pick_crop_box_live
 from preprocessing import crop_image_fixed
 from fill_percentage import predict_volume
 
+
+
 #
 # Code from this file is AI gen, it is purely used for testing. 
 #
@@ -80,6 +82,8 @@ def run_with_live_crop (source = 0, slit = False) :
             cv2.imshow("Cropped", draw_profile(cropped, profile))
             if (cv2.waitKey(1) & 0xFF) in (ord("q"), ord("Q"), 27) :
                 break
+
+
     finally :
         cap.release()
         cv2.destroyAllWindows()
@@ -103,6 +107,9 @@ def main () :
         fill = predict(model, frame)
         cv2.imshow("ycoordinate (e = empty reference, q = quit)", draw_profile(frame, fill))
         key = cv2.waitKey(1) & 0xFF
+
+        
+
         if key == ord("e") :
             empty = frame.copy()
         elif key == ord("q") :
