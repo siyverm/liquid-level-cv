@@ -16,6 +16,8 @@ import sys
 import cv2
 import numpy as np
 
+from preprocessing import crop_image_edge_detect
+
 STRIP = 0.4          # fraction of the width (centered) used, like the labeling guideline
 PEAK_MIN = 8.0       # minimum edge strength (0-255 gray levels per pixel) to count as a liquid line; tune on real photos
 BORDER = 0.05        # ignore this fraction at the top and bottom, where the rim and base edges are
@@ -68,10 +70,11 @@ def main () :
         cv2.imwrite("ycoordinate_out.png", draw(image, y, fill))
         return
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     empty = None
     while True :
         ok, frame = cap.read()
+        #frame = crop_image_edge_detect(frame) #test
         if not ok :
             break
         y, fill = find_liquid(frame, empty)
