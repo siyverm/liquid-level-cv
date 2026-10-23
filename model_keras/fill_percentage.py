@@ -36,6 +36,10 @@ def main():
 def predict_volume(arr):
     y1 = np.argmax(arr[:, 0])
     y2 = np.argmax(arr[:, 1])
+    print(arr.shape[0])
+    if (abs(y1 - y2) > arr.shape[0] / 10 ):
+        return
+
     print (y1, y2)
     y = (y1 + y2) / 2
     height = arr.shape[0]

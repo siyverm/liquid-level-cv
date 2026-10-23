@@ -29,7 +29,7 @@ def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
     #idk if relu is actually needed. 
     x = layers.ReLU() (x)
     # reduce dimension, summing over all rows. 
-    x = layers.AveragePooling2D(pool_size = (1, width - 2)) (x)
+    # x = layers.AveragePooling2D(pool_size = (1, width - 2)) (x)
 
     model = keras.Model(input, x)
 
@@ -42,9 +42,12 @@ def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
 
 def predict (model, img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype("float32")   # (1080, 1920), for getting correct dimension into model
-    profile = model.predict(gray[np.newaxis, :, :, np.newaxis])[0, :, 0, :] 
-    return profile
+    profile = model.predict(gray[np.newaxis, :, :, np.newaxis])[0]
 
+    profile = np.median(profile, axis = 1)
+
+    return profile
+  
 def main () :
 
     model = make_model()
