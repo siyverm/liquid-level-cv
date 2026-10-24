@@ -65,6 +65,12 @@ def run_with_live_crop (source = 0, slit = False) :
 
     # the picker releases the camera when it closes, so open it again
     cap = cv2.VideoCapture(source)
+    # These modifications don't work on mac os, to prevent errors, check for not MacOS before doing this
+    if not (hasattr(os, 'uname') and os.uname().sysname == 'Darwin'):
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)   # V4L2 manual mode (value semantics vary by backend; 0.25 on some)
+        cap.set(cv2.CAP_PROP_EXPOSURE, -6)      # then set a fixed value
+        cap.set(cv2.CAP_PROP_AUTO_WB, 0)
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
     if not cap.isOpened() :
         raise ValueError(f"Could not open video source {source}")
 
@@ -75,7 +81,8 @@ def run_with_live_crop (source = 0, slit = False) :
                 break
 
             cropped, _ = crop_image_fixed(frame, box, fractional = True)
-            profile = predict(model, cropped)
+            blur = cv2.GaussianBlur(cropped, (15, 15), 0)
+            profile = predict(model, blur)
 
             predict_volume(profile)    
 
@@ -103,8 +110,9 @@ def main () :
         ok, frame = cap.read()
         if not ok :
             break
-        
-        fill = predict(model, frame)
+
+        blur = cv2.GaussianBlur(frame, (15, 15), 0)
+        fill = predict(model, blur)
         cv2.imshow("ycoordinate (e = empty reference, q = quit)", draw_profile(frame, fill))
         key = cv2.waitKey(1) & 0xFF
 
