@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from crop_tool import pick_crop_box_live
 from preprocessing import crop_image_fixed
-from fill_percentage import predict_volume
+from fill_percentage import predict_volume, predict_volume1
 
 
 
@@ -27,6 +27,9 @@ from fill_percentage import predict_volume
 # Green = dark above / light below (channel 0), red = light above / dark below (channel 1).
 # Small images are scaled up to at least minHeight pixels tall so the lines are easy to see.
 def draw_profile (img, profile, panelWidth = 150, minHeight = 400) :
+    if profile.ndim == 1 :
+        profile = profile[:, None]     # (rows,) -> (rows, 1)
+
     h = img.shape[0]
     scale = max(1.0, minHeight / h)
     shown = cv2.resize(img, None, fx = scale, fy = scale, interpolation = cv2.INTER_NEAREST)
@@ -39,7 +42,7 @@ def draw_profile (img, profile, panelWidth = 150, minHeight = 400) :
     peak = profile.max()
     colors = [(0, 255, 0), (0, 0, 255)]   # BGR
 
-    for c, color in enumerate(colors) :
+    for c, color in enumerate(colors[:profile.shape[1]]) :
         # both channels share one scale so their strengths can be compared
         values = profile[:, c] / peak if peak > 0 else np.zeros(len(rows))
         points = np.stack([(values * (panelWidth - 1)).astype(np.int32), centers], axis = 1)
@@ -82,9 +85,13 @@ def run_with_live_crop (source = 0, slit = False) :
 
             cropped, _ = crop_image_fixed(frame, box, fractional = True)
             blur = cv2.GaussianBlur(cropped, (15, 15), 0)
-            profile = predict(model, blur)
 
-            predict_volume(profile)    
+            profile = predict(model, blur)
+            profile = profile[:, 0]
+
+            predict_volume1(profile)
+            cv2.imshow("Cropped", draw_profile(cropped, profile))
+
 
             cv2.imshow("Cropped", draw_profile(cropped, profile))
             if (cv2.waitKey(1) & 0xFF) in (ord("q"), ord("Q"), 27) :

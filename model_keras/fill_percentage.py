@@ -48,6 +48,15 @@ def predict_volume(arr):
     fill_percent = 1 - fill_percent
     print(fill_percent)
 
+def predict_volume1(arr):
+    y = np.argmax(arr)
+    height = arr.shape[0]
+
+    fill_percent = 1 - (y / height)
+    print(y, fill_percent)
+    return fill_percent
+
+
 
 if __name__ == "__main__" :
     main()
