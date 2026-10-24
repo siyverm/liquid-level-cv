@@ -7,3 +7,4 @@ cropPreview/
 testImages/
 dataset/pp_*.png
 images/*.part
+.venv/
