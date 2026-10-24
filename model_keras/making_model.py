@@ -46,6 +46,14 @@ def predict (model, img):
 
     profile = np.median(profile, axis = 1)
 
+    height  = profile.shape[0]
+    y = np.arange(height)
+    margin = 0.05 * height
+    dist_from_edge = np.minimum(y, height - 1 - y)
+    w = np.clip(dist_from_edge / margin, 0, 1)
+    w = 0.5 - 0.5 * np.cos(np.pi * w)
+    profile = profile * w[:, None]
+
     return profile
   
 def main () :
