@@ -251,3 +251,4 @@ Open a new terminal after installing with pipx, or run `pipx ensurepath` first.
 ## Using the model
 
 Coming soon.
+

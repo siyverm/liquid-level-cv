@@ -11,9 +11,9 @@ import keras
 
 
 # kernel that is applied over entire image
-sobel_y = np.array([[-1, -2, -1 ],
+sobel_y = np.array([[1, 2, 1 ],
                     [0,   0,  0],
-                    [1,   2,  1]], dtype = "float32")
+                    [-1,   -2,  -1]], dtype = "float32")
 # modifies the kernel to be 2 kernels, one for detecting white into dark and other the inverse.
 kernel = np.stack([sobel_y, -sobel_y], axis = -1) [:, :, np.newaxis, :]
 
