@@ -25,7 +25,7 @@ MAX_HEIGHT = 500
 def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
     input = layers.Input(shape = (height, width, 1))
     # applies the kernel using a convolution layer (no learning)
-    x = layers.Conv2D(2, kernel_size = 3, padding = "valid", use_bias = False, trainable = False, name = "sobel") (input)
+    x = layers.Conv2D(2, kernel_size = 3, padding = "same", use_bias = False, trainable = False, name = "sobel") (input)
     #idk if relu is actually needed. 
     x = layers.ReLU() (x)
     # reduce dimension, summing over all rows. 
@@ -48,12 +48,15 @@ def predict (model, img):
 
     height  = profile.shape[0]
     y = np.arange(height)
-    margin = 0.05 * height
-    dist_from_edge = np.minimum(y, height - 1 - y)
-    w = np.clip(dist_from_edge / margin, 0, 1)
-    w = 0.5 - 0.5 * np.cos(np.pi * w)
+    top_margin = 0.05 * height
+    bottom_margin = 0.15 * height
+    w_top = np.clip(y / top_margin, 0, 1)
+    w_bottom = np.clip((height - 1 - y) / bottom_margin, 0, 1)
+    w_top = 0.5 - 0.5 * np.cos(np.pi * w_top)
+    w_bottom = 0.5 - 0.5 * np.cos(np.pi * w_bottom)
+    w = w_top * w_bottom
     profile = profile * w[:, None]
-
+    print(w_bottom)
     return profile
   
 def main () :
