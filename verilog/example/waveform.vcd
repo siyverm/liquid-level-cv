@@ -1,0 +1,42 @@
+$date
+	Thu Oct 29 19:02:34 2026
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module testbench $end
+$var wire 32 ! out [31:0] $end
+$var reg 32 " a [31:0] $end
+$var reg 32 # b [31:0] $end
+$scope module module1 $end
+$var wire 32 $ a [31:0] $end
+$var wire 32 % b [31:0] $end
+$var wire 32 & out [31:0] $end
+$var parameter 32 ' PIXEL_DATAWIDTH $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+b100000 '
+$end
+#0
+$dumpvars
+b1111 &
+b1000 %
+b111 $
+b1000 #
+b111 "
+b1111 !
+$end
+#110
+b1111 #
+b1111 %
+b11110 !
+b11110 &
+b1111 "
+b1111 $
+#210
