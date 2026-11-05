@@ -11,9 +11,9 @@ import keras
 
 
 # kernel that is applied over entire image
-sobel_y = np.array([[-1, -2, -1 ],
+sobel_y = np.array([[1, 2, 1 ],
                     [0,   0,  0],
-                    [1,   2,  1]], dtype = "float32")
+                    [-1,   -2,  -1]], dtype = "float32")
 # modifies the kernel to be 2 kernels, one for detecting white into dark and other the inverse.
 kernel = np.stack([sobel_y, -sobel_y], axis = -1) [:, :, np.newaxis, :]
 
@@ -25,7 +25,7 @@ MAX_HEIGHT = 500
 def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
     input = layers.Input(shape = (height, width, 1))
     # applies the kernel using a convolution layer (no learning)
-    x = layers.Conv2D(2, kernel_size = 3, padding = "valid", use_bias = False, trainable = False, name = "sobel") (input)
+    x = layers.Conv2D(2, kernel_size = 3, padding = "same", use_bias = False, trainable = False, name = "sobel") (input)
     #idk if relu is actually needed. 
     x = layers.ReLU() (x)
     # reduce dimension, summing over all rows. 
@@ -46,6 +46,17 @@ def predict (model, img):
 
     profile = np.median(profile, axis = 1)
 
+    height  = profile.shape[0]
+    y = np.arange(height)
+    top_margin = 0.05 * height
+    bottom_margin = 0.15 * height
+    w_top = np.clip(y / top_margin, 0, 1)
+    w_bottom = np.clip((height - 1 - y) / bottom_margin, 0, 1)
+    w_top = 0.5 - 0.5 * np.cos(np.pi * w_top)
+    w_bottom = 0.5 - 0.5 * np.cos(np.pi * w_bottom)
+    w = w_top * w_bottom
+    profile = profile * w[:, None]
+    print(w_bottom)
     return profile
   
 def main () :
