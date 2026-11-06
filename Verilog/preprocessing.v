@@ -237,12 +237,12 @@ endmodule
 //     gray = (9798*R + 19235*G + 3735*B + 16384) >> 15
 // -----------------------------------------------------------------------------
 module rgb2gray (
-    input  wire        clk,
-    input  wire        rst,
-    input  wire        s_valid,
-    input  wire        s_sof,
-    input  wire        s_eol,
-    input  wire [23:0] s_rgb,      // {R, G, B}
+    input  wire        clk,  // pixel clock
+    input  wire        rst,  // synchronous reset  
+    input  wire        s_valid,  // pixel is present on the clock
+    input  wire        s_sof,  // start of frame
+    input  wire        s_eol,  // end of line
+    input  wire [23:0] s_rgb,      // {R, G, B} declares a 24 bit vector that is equivalent of having 24 separate wires (8 wires per color value)
     output reg         m_valid,
     output reg         m_sof,
     output reg         m_eol,
