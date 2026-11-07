@@ -1,16 +1,16 @@
-`include "Qxxmultiply.sv"
+`include "Qxymultiply.sv"
 `include "adder_tree_block.sv"
 
 module kernel # (
-    parameter int WIDTH, HEIGHT, DATA_WIDTH, FRAC_BITS, WEIGHT_SIZE, WEIGHT_FRAC_BITS, K,
-    parameter int BOTTOM_LEFT_X, BOTTOM_LEFT_Y, TOP_RIGHT_X, TOP_RIGHT_Y, // represents the crop coordinate indices
+    parameter int WIDTH=500, HEIGHT=500, DATA_WIDTH=16, FRAC_BITS=8, WEIGHT_SIZE=DATA_WIDTH, WEIGHT_FRAC_BITS=FRAC_BITS, K=3,
+    parameter int BOTTOM_LEFT_X=0, BOTTOM_LEFT_Y=0, TOP_RIGHT_X=500, TOP_RIGHT_Y=500, // represents the crop coordinate indices
     localparam int MULT_WIDTH = DATA_WIDTH + WEIGHT_SIZE,
     localparam int SUM_WIDTH = MULT_WIDTH + $clog2(K**2)
 )(
     input clk, rst_n, en,
     input logic signed [0:WIDTH-1][0:HEIGHT-1][DATA_WIDTH-1:0] image,
     input logic signed [0:K-1][0:K-1][WEIGHT_SIZE-1:0] filter,
-    output logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][DATA_WIDTH-1:0] out;
+    output logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][DATA_WIDTH-1:0] out
 );
 
 logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][0:K-1][0:K-1][MULT_WIDTH-1:0] mult_out;

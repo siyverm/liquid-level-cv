@@ -1,6 +1,9 @@
+`include "model_pkg.sv"
+
 module adder_tree_block 
+    import model_pkg::*;
 # (
-    parameter int NUM, DATA_WIDTH, DEPTH=-1, MAX_ADDS=2,
+    parameter int NUM = 10, DATA_WIDTH = 16, DEPTH=-1, MAX_ADDS=2,
     localparam int SUM_WIDTH = DATA_WIDTH + $clog2(NUM)
     ) (
     input clk, rst_n, en,
@@ -62,15 +65,3 @@ end else begin: recursion
 end
 
 endmodule
-
-function automatic int adder_tree_block_latency(int num, int max_adds);
-    // Num levels = latency = ceil(log_{max_adds}(num))
-    // Use while loop to avoid floating point silent errors
-    int latency = 0;
-    int MAX_WIDTH = 1;
-    while (MAX_WIDTH < num) begin
-        MAX_WIDTH = MAX_WIDTH * max_adds;
-        latency++;
-    end
-    return (latency < 1) ? 1 : latency; // Minimum latency of 1
-endfunction

@@ -1,5 +1,5 @@
 module Qxymultiply 
-# (parameter int DATA_WIDTH, FRAC_BITS, WEIGHT_WIDTH=DATA_WIDTH, WEIGHT_FRAC_BITS=FRAC_BITS) (
+# (parameter int DATA_WIDTH=16, FRAC_BITS=8, WEIGHT_WIDTH=DATA_WIDTH, WEIGHT_FRAC_BITS=FRAC_BITS) (
     input clk, rst_n, en,
     input logic signed [DATA_WIDTH-1:0] input_reg, 
     input logic signed [WEIGHT_WIDTH-1:0] weight,
