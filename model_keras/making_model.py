@@ -7,9 +7,6 @@ from keras import layers, Model, callbacks
 import sys
 import keras
 
-
-
-
 # kernel that is applied over entire image
 sobel_y = np.array([[1, 2, 1 ],
                     [0,   0,  0],
@@ -41,7 +38,8 @@ def make_model (width = MAX_WIDTH, height = MAX_HEIGHT) :
     return model
 
 def predict (model, img):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype("float32")   # (1080, 1920), for getting correct dimension into model
+    blur = cv2.GaussianBlur(img, (15, 15), 0)
+    gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY).astype("float32")   # (1080, 1920), for getting correct dimension into model
     profile = model.predict(gray[np.newaxis, :, :, np.newaxis])[0]
 
     profile = np.median(profile, axis = 1)
