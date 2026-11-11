@@ -10,7 +10,7 @@ module model
     parameter int BOTTOM_RIGHT_Y = HEIGHT - 1,
     parameter int WEIGHT_SIZE = 11,
     parameter int WEIGHT_FRAC_BITS = 8,
-    parameter int BOTTOM_WEIGHT_PERCENT = 20,
+    parameter int BOTTOM_WEIGHT_PERCENT = 5,
     localparam int CROP_WIDTH = BOTTOM_RIGHT_X - TOP_LEFT_X + 1,
     localparam int CROP_HEIGHT = BOTTOM_RIGHT_Y - TOP_LEFT_Y + 1,
     localparam int TOTAL_PIXELS = WIDTH * HEIGHT,

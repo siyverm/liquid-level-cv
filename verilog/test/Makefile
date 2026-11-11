@@ -1,7 +1,7 @@
 SIM = verilator
 TOPLEVEL_LANG = verilog
 TOPLEVEL = model
-MODULE = model_pipeline_test
+MODULE = comparing_models
 SIM_BUILD = sim_build_model
 
 WIDTH ?= 128
