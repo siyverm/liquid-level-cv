@@ -1,13 +1,34 @@
-`include "kernel.sv"
-
-module model # (
-    parameter int WIDTH, HEIGHT, DATA_WIDTH, FRAC_BITS, WEIGHT_SIZE, WEIGHT_FRAC_BITS,
-    parameter int BOTTOM_LEFT_X, BOTTOM_LEFT_Y, TOP_RIGHT_X, TOP_RIGHT_Y, // represents the crop coordinate indices (inclusive)
+module model 
+    import model_pkg::*;
+# (
+    parameter int WIDTH=1080, HEIGHT=1920, PIXEL_WIDTH=8,
+    parameter int TOP_LEFT_X=0, TOP_LEFT_Y=0, BOTTOM_RIGHT_X=WIDTH, BOTTOM_RIGHT_Y=HEIGHT // represents the crop coordinate indices (inclusive)
 )(
-    input clk, rst_n, en,
-    input logic signed [0:WIDTH-1][0:HEIGHT-1][DATA_WIDTH-1:0] image,
-    output logic [DATA_WIDTH-1:0] fill_percent
+    input clk, rst_n, en, 
+    input image_start, output_ready,
+    input logic [PIXEL_WIDTH-1:0] pixel [3], // Red, Green, Blue, 8 bit color format
+    output int fill_percent
 );
+
+/*
+Plan: data flow approach
+
+One pixel gets streamed per clock cycle into the pixel input.
+
+1. grayscale the image using a qxymultiply and adder: Gray = 0.299·R + 0.587·G + 0.114·B for each pixel.
+
+build kernel module that takes in 1 pixel at a time, and has a ready signal per pixel input. image start and image end signal.
+output is 1 pixel of the new image, as well as a ready signal per output. unchanged dimensions with padding if the kernel goes past the image.
+- allows for float kernel values
+
+2. kernel blur
+3. kernel edge
+4. for each row, take the median value, leading to a 1d array of values. multiply bottom values by a fraction to ignore bottom of cup.
+5. Argmax: find index of the highest value. This is the water level height.
+6. index/HEIGHT = fill percent, since image will be cropped so the bottom and top align with container
+
+*/
+
 logic signed [BOTTOM_LEFT_X:TOP_RIGHT_X][BOTTOM_LEFT_Y:TOP_RIGHT_Y][DATA_WIDTH-1:0] blurred_cropped_image;
 logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][DATA_WIDTH-1:0] edge_conv2D_sum;
 logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][DATA_WIDTH-1:0] edge_conv2D_sum_abs;

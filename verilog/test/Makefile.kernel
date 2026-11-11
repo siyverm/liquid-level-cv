@@ -1,0 +1,15 @@
+SIM = verilator
+TOPLEVEL_LANG = verilog
+TOPLEVEL = kernel_test_wrapper
+MODULE = kernel
+SIM_BUILD = sim_build_kernel
+
+VERILOG_SOURCES = $(CURDIR)/../rtl/v1/model_pkg.sv \
+                  $(CURDIR)/../rtl/v1/adder_tree_block.sv \
+                  $(CURDIR)/../rtl/v1/Qxymultiply.sv \
+                  $(CURDIR)/../rtl/v2/kernel.sv \
+                  $(CURDIR)/kernel_test_wrapper.sv
+
+EXTRA_ARGS += --trace --timing
+
+include $(shell cocotb-config --makefiles)/Makefile.sim

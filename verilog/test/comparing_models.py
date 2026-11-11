@@ -79,4 +79,3 @@ async def wait_for_result (dut, timeout_cycles=100_000) :
     await Timer(1, "ns")
     return dut.fill_percent.value.integer
 
-    

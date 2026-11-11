@@ -1,9 +1,6 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1794084374" />
-    <testcase name="test_unity" classname="test_qxymultiply" file="/home/roshan/vtest/Husky_Robotics/liquid-level-cv/verilog/test/test_qxymultiply.py" lineno="62" time="0.003124237060546875" sim_time_ns="81.001" ratio_time="25926.64974847375" />
-    <testcase name="test_corners" classname="test_qxymultiply" file="/home/roshan/vtest/Husky_Robotics/liquid-level-cv/verilog/test/test_qxymultiply.py" lineno="71" time="0.004161834716796875" sim_time_ns="311.001" ratio_time="74726.89839046745" />
-    <testcase name="test_random" classname="test_qxymultiply" file="/home/roshan/vtest/Husky_Robotics/liquid-level-cv/verilog/test/test_qxymultiply.py" lineno="80" time="0.2812228202819824" sim_time_ns="20061.001" ratio_time="71334.89728850886" />
-    <testcase name="test_enable_stall" classname="test_qxymultiply" file="/home/roshan/vtest/Husky_Robotics/liquid-level-cv/verilog/test/test_qxymultiply.py" lineno="94" time="0.0020279884338378906" sim_time_ns="171.0010000000002" ratio_time="84320.50062355994" />
+    <property name="random_seed" value="1794359042" />
+    <testcase name="compare_model_pipeline" classname="model_pipeline_test" file="/home/roshan/vtest/Husky_Robotics/liquid-level-cv/verilog/test/model_pipeline_test.py" lineno="104" time="13.06075668334961" sim_time_ns="1018691.001" ratio_time="77996.32331399829" />
   </testsuite>
 </testsuites>

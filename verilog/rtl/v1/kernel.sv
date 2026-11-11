@@ -1,78 +1,66 @@
-`include "Qxymultiply.sv"
-`include "adder_tree_block.sv"
-
-module kernel # (
-    parameter int WIDTH=500, HEIGHT=500, DATA_WIDTH=16, FRAC_BITS=8, WEIGHT_SIZE=DATA_WIDTH, WEIGHT_FRAC_BITS=FRAC_BITS, K=3,
-    parameter int BOTTOM_LEFT_X=0, BOTTOM_LEFT_Y=0, TOP_RIGHT_X=500, TOP_RIGHT_Y=500, // represents the crop coordinate indices
-    localparam int MULT_WIDTH = DATA_WIDTH + WEIGHT_SIZE,
-    localparam int SUM_WIDTH = MULT_WIDTH + $clog2(K**2)
+module kernel 
+    import model_pkg::*;
+# (
+    parameter int WIDTH=1080, HEIGHT=1920, PIXEL_WIDTH=8, WEIGHT_SIZE=4, WEIGHT_FRAC_BITS=0, K=3,
+    parameter int TOP_LEFT_X=0, TOP_LEFT_Y=0, BOTTOM_RIGHT_X=WIDTH, BOTTOM_RIGHT_Y=HEIGHT, // represents the crop coordinate indices
+    localparam int MULT_WIDTH = PIXEL_WIDTH + WEIGHT_SIZE,
+    localparam int SUM_WIDTH = MULT_WIDTH + $clog2(K**2),
+    localparam int WIDTH_BITS = $clog2(WIDTH),
+    localparam int HEIGHT_BITS = $clog2(HEIGHT),
+    localparam int CROPPED_WIDTH = BOTTOM_RIGHT_X-TOP_LEFT_X+1,
+    localparam int CROPPED_HEIGHT = BOTTOM_RIGHT_Y-TOP_LEFT_Y+1,
+    localparam int CROPPED_WIDTH_BITS = $clog2(CROPPED_WIDTH),
+    localparam int CROPPED_HEIGHT_BITS = $clog2(CROPPED_HEIGHT),
+    localparam int START_CALC = K / 2
 )(
-    input clk, rst_n, en,
-    input logic signed [0:WIDTH-1][0:HEIGHT-1][DATA_WIDTH-1:0] image,
-    input logic signed [0:K-1][0:K-1][WEIGHT_SIZE-1:0] filter,
-    output logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][DATA_WIDTH-1:0] out
+    input clk, rst_n, en, 
+    input input_ready, output_ready, input_image_start, output_image_start,
+    input logic [PIXEL_WIDTH-1:0] pixel, //grayscaled
+    input logic signed [WEIGHT_SIZE-1:0] filter [0:K-1][0:K-1],
+    output logic signed [PIXEL_WIDTH-1:0] out [TOP_LEFT_X:BOTTOM_RIGHT_X][TOP_LEFT_Y:BOTTOM_RIGHT_Y]
 );
 
-logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][0:K-1][0:K-1][MULT_WIDTH-1:0] mult_out;
-logic signed [BOTTOM_LEFT_X + 1:TOP_RIGHT_X-1][BOTTOM_LEFT_Y + 1:TOP_RIGHT_Y-1][SUM_WIDTH-1:0] conv2D_sum;
+logic [WIDTH_BITS-1:0] im_x;
+logic [HEIGHT_BITS-1:0] im_y;
+logic [PIXEL_WIDTH-1:0] image [WIDTH][HEIGHT];
 
-generate // multiply blocks
-    for (genvar i = BOTTOM_LEFT_X + 1; i < TOP_RIGHT_X; i++) begin: mult_x
-        for (genvar j = BOTTOM_LEFT_Y + 1; j < TOP_RIGHT_Y; j++) begin: mult_y
-            for (genvar filter_i = 0; filter_i < K; filter_i++) begin: filter_x
-                for (genvar filter_j = 0; filter_j < K; filter_j++) begin: filter_y
-                    Qxymultiply #(
-                        .DATA_WIDTH(DATA_WIDTH), 
-                        .FRAC_BITS(FRAC_BITS), 
-                        .WEIGHT_WIDTH(WEIGHT_WIDTH), 
-                        .WEIGHT_FRAC_BITS(WEIGHT_FRAC_BITS)
-                        ) 
-                    multiply_block (
-                        .clk(clk), 
-                        .rst_n(rst_n),
-                        .en(en),
-                        .input_reg(image[i][j]), 
-                        .weight(filter[filter_i][filter_j]), 
-                        .final_product(mult_out[i][j][filter_i][filter_j])
-                    );
-                end
+always_ff @(posedge clk) begin
+    if (!rst_n) begin
+        im_x <= 0;
+        im_y <= 0;
+    end else if (en) begin
+        if (input_image_start) begin
+            image[0][0] <= pixel;
+            im_x <= 1;
+            im_y <= 0;
+        end else if (input_ready) begin
+            image[im_x][im_y] <= pixel;
+
+            if (im_x < WIDTH-1) begin
+                im_x <= im_x + 1;
+            end else begin
+                im_x <= 0;
+                im_y <= im_y + 1;
             end
         end
     end
-endgenerate
+end
 
-generate //adder blocks
-    for (genvar i = BOTTOM_LEFT_X + 1; i < TOP_RIGHT_X; i++) begin: adder_x
-        for (genvar j = BOTTOM_LEFT_Y + 1; j < TOP_RIGHT_Y; j++) begin: adder_y
-            adder_tree_block # (
-                .NUM(K**2), // 9 for a 3x3 kernel
-                .DATA_WIDTH(MULT_WIDTH)
-                ) 
-            adder_tree (
-                .clk(clk), 
-                .rst_n(rst_n),
-                .en(en),
-                .nums(mult_out[i][j]),
-                .sum(conv2D_sum[i][j])
-            );
+// wait for the cropped portiob to be ready
+
+logic [CROPPED_WIDTH_BITS-1:0] cf_x;
+logic [CROPPED_HEIGHT_BITS-1:0] cf_y;
+logic [PIXEL_WIDTH-1:0] cropped_filtered [CROPPED_WIDTH][CROPPED_HEIGHT];
+
+always_ff @(posedge clk) begin
+    if (!rst_n) begin
+        im_x <= 0;
+        im_y <= 0;
+    end else if (en) begin
+        if (im_y >= START_CALC && im_x >= START_CALC) begin
+            im_x <= 0;
+            im_y <= 0;
         end
     end
-endgenerate
-
-generate //applying clamp
-    for (genvar i = BOTTOM_LEFT_X + 1; i < TOP_RIGHT_X; i++) begin: clamp_x
-        for (genvar j = BOTTOM_LEFT_Y + 1; j < TOP_RIGHT_Y; j++) begin: clamp_y
-            assign out[i][j] = clamp(conv2D_sum[i][j], DATA_WIDTH);
-        end
-    end
-endgenerate
-
-
-function automatic int clamp(int signed a, int data_width);
-    int maximumVal = (1 <<< (data_width - 1)) - 1;
-    int minimumVal = -(1 <<< (data_width - 1));
-    if (a > maximumVal) return maximumVal;
-    else if (a < minimumVal) return minimumVal;
-    else return a;
-endfunction
+end
 endmodule

@@ -9,3 +9,4 @@ dataset/pp_*.png
 images/*.part
 .venv/
 sim_build/
+sim_build_model/

@@ -11,7 +11,7 @@ FB = int(os.environ.get("FRAC_BITS", 8))
 WW = int(os.environ.get("WEIGHT_WIDTH", DW))
 WFB = int(os.environ.get("WEIGHT_FRAC_BITS", FB))
 
-LATENCY = 4  # clock edges from input applied to result visible (a/b, product, product_out, final)
+LATENCY = 2  # clock edges from input applied to result visible (a/b, product, product_out, final)
 
 
 def model(a, b):
@@ -96,6 +96,14 @@ async def test_enable_stall(dut):
     """With en=0 the whole pipeline must freeze and ignore inputs."""
     await setup(dut)
     X, Y = (3 << FB, -(5 << WFB) // 2), (-(7 << FB), 2 << WFB)
+
+    # arr = image[][]
+
+    # for 
+    #     for
+    #       dut.pixel[0] = image[i][j];
+    #       await RisingEdge(dut.clk)
+    #       await Timer(1, "ns")
 
     async def hold(vec, cycles):
         dut.input_reg.value = u(vec[0], DW)

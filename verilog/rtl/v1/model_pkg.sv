@@ -10,4 +10,13 @@ package model_pkg;
         end
         return (latency < 1) ? 1 : latency; // Minimum latency of 1
     endfunction
-  endpackage
+
+    function automatic int clamp(int signed a, int data_width);
+        int maximumVal = (1 <<< (data_width - 1)) - 1;
+        int minimumVal = -(1 <<< (data_width - 1));
+        if (a > maximumVal) return maximumVal;
+        else if (a < minimumVal) return minimumVal;
+        else return a;
+    endfunction
+
+endpackage
