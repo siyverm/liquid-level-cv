@@ -2,6 +2,7 @@ import cv2
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
+import os
 
 import sys
 from pathlib import Path
@@ -43,7 +44,8 @@ async def compare_outputs(dut):
     dut.image_start.value = 1
 
     img = load_image(IMGPATHS, 128, 128, False)
-    cropped, _ = crop_image_fixed(img, (33,8,104,114))
+    CROP_BOX = tuple(int(os.environ[k]) for k in ("CROP_L", "CROP_T", "CROP_R", "CROP_B"))
+    cropped, _ = crop_image_fixed(img, (CROP_BOX))
 
     model = make_model(cropped.shape[1], cropped.shape[0])
     prediction = predict(model, cropped)
@@ -62,7 +64,7 @@ async def compare_outputs(dut):
                 dut.image_start.value = 0
 
     rtlResult = await wait_for_result(dut)
-    rtl_fill = rtlResult / 2**FRAC_BITS
+    rtl_fill = 1 - rtlResult / 2**FRAC_BITS
 
     print(f"KERAS PREDICTION: {percentage * 100:.3f} %")
     print(f"HARDWARE PREDICTION: {rtl_fill * 100:.3f} %")
