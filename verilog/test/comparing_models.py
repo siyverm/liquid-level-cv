@@ -15,7 +15,7 @@ from making_model import predict, make_model
 from fill_percentage import predict_volume1
 from preprocessing import crop_image_fixed
 
-IMGPATHS = "testImges/resized_128/483b0763-107e-4b1e-afc6-bdd983f9dd49_1.jpg"
+IMGPATHS = "testImges/resized_128/darktest.png"
 MODELPATH = ""
 
 FRAC_BITS = 8
